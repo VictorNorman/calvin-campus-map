@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Calvin Campus Map</title>
+  <meta name="description" content="Find your way around Calvin University: locate yourself and get walking directions to any building." />
+  <meta name="theme-color" content="#7a1e29" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icons/icon-192.png" />
+  <link rel="apple-touch-icon" href="icons/icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Calvin Map" />
+  <link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <div id="app">
+    <header id="top-bar">
+      <div id="brand">
+        <img class="brand-crest" src="icons/calvin-crest.png" alt="Calvin University" />
+        <span class="brand-text">Calvin Campus Map</span>
+      </div>
+      <form id="search-form" role="search" autocomplete="off">
+        <input
+          id="search-input"
+          type="text"
+          inputmode="search"
+          placeholder="Search buildings, rooms, parking…"
+          aria-label="Search buildings and places"
+        />
+        <button id="search-clear" type="button" aria-label="Clear search" hidden>&times;</button>
+      </form>
+      <!-- Dev label: shows the service worker cache version actually
+           controlling this page, for checking cached vs. fresh state. -->
+      <span id="sw-version" title="Service worker cache version" hidden></span>
+      <ul id="search-results" role="listbox" hidden></ul>
+    </header>
+
+    <div id="category-chips" aria-label="Filter by category"></div>
+
+    <main id="map">
+      <!-- Edit mode: a dev/testing toggle that reveals map-building tools
+           (entrance pins, the "simulate my location" button, and more to
+           come). Off by default. -->
+      <button id="edit-mode-btn" title="Toggle edit mode" aria-label="Toggle edit mode">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/>
+        </svg>
+      </button>
+
+      <!-- Shown only while the "add entrance" tool is armed: picks which
+           building a clicked-in entrance belongs to. No auto-guessing. -->
+      <select id="entrance-building-select" aria-label="Building the new entrance belongs to" hidden></select>
+    </main>
+
+    <button id="locate-btn" title="Center on my location" aria-label="Center on my location">
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path d="M12 2a1 1 0 0 1 1 1v1.06A8.005 8.005 0 0 1 19.94 11H21a1 1 0 1 1 0 2h-1.06A8.005 8.005 0 0 1 13 19.94V21a1 1 0 1 1-2 0v-1.06A8.005 8.005 0 0 1 4.06 13H3a1 1 0 1 1 0-2h1.06A8.005 8.005 0 0 1 11 4.06V3a1 1 0 0 1 1-1zm0 4a6 6 0 1 0 0 12 6 6 0 0 0 0-12zm0 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5z"/>
+      </svg>
+    </button>
+
+    <button id="rotate-btn" title="Toggle map rotation" aria-label="Toggle map rotation" hidden>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0 0 20 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 0 0 4 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/>
+      </svg>
+    </button>
+
+    <!-- Edit-mode-only tool: click to arm, then click the map to pretend
+         you're standing there (for testing routing without real GPS).
+         Hidden unless edit mode is on. -->
+    <button id="simulate-location-btn" title="Simulate my location" aria-label="Simulate my location by clicking the map" hidden>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path d="M12 2C7.6 2 4 5.6 4 10c0 5.2 6.6 11.1 7.3 11.7a1 1 0 0 0 1.4 0C13.4 21.1 20 15.2 20 10c0-4.4-3.6-8-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+      </svg>
+    </button>
+
+    <!-- Edit-mode-only tool: click to arm, then click the map to add an
+         entrance to the active building (or the nearest one, if none is
+         selected). Hidden unless edit mode is on. -->
+    <button id="add-entrance-btn" title="Add entrance" aria-label="Add an entrance by clicking the map" hidden>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path d="M12 2C7.6 2 4 5.6 4 10c0 5.2 6.6 11.1 7.3 11.7a1 1 0 0 0 1.4 0C13.4 21.1 20 15.2 20 10c0-4.4-3.6-8-8-8z"/>
+        <rect x="11" y="6.5" width="2" height="7" fill="#fff"/>
+        <rect x="8.5" y="9" width="7" height="2" fill="#fff"/>
+      </svg>
+    </button>
+
+    <!-- Edit-mode-only tool: downloads the in-browser CALVIN_BUILDINGS
+         (including any entrances added above) as a ready-to-commit
+         js/buildings-data.js. Hidden unless edit mode is on. -->
+    <button id="download-data-btn" title="Download buildings-data.js" aria-label="Download updated building data" hidden>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path d="M12 3a1 1 0 0 1 1 1v8.59l3.3-3.3a1 1 0 1 1 1.4 1.42l-5 5a1 1 0 0 1-1.4 0l-5-5a1 1 0 1 1 1.4-1.42l3.3 3.3V4a1 1 0 0 1 1-1zM5 19a1 1 0 0 1 1-1h12a1 1 0 1 1 0 2H6a1 1 0 0 1-1-1z"/>
+      </svg>
+    </button>
+
+    <!-- Edit-mode-only tool: fetches and draws the current OpenStreetMap
+         footway/path network for campus, so gaps (paths that exist on the
+         ground but aren't mapped/routable in OSM) are visible in-app. This
+         is read-only — fixing a gap means editing OpenStreetMap itself.
+         Hidden unless edit mode is on. -->
+    <button id="show-osm-paths-btn" title="Show OSM paths" aria-label="Show OpenStreetMap's mapped paths" hidden>
+      <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+        <path d="M4 18c3-9 6-9 8-4.5s5 4.5 8-4.5" fill="none" stroke="#1c1c1e" stroke-width="2" stroke-linecap="round" stroke-dasharray="2.5 2.5"/>
+      </svg>
+    </button>
+
+    <div id="route-panel" hidden>
+      <div id="route-panel-handle"></div>
+      <div id="route-summary">
+        <div id="route-destination"></div>
+        <div id="route-stats"></div>
+        <div id="route-warning" hidden></div>
+      </div>
+      <button id="route-close" aria-label="Close route">&times;</button>
+    </div>
+
+    <div id="toast" role="status" aria-live="polite" hidden></div>
+  </div>
+
+  <script src="vendor/maplibre/maplibre-gl.js"></script>
+  <script src="js/buildings-data.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

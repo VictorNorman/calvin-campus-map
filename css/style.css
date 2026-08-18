@@ -1,0 +1,724 @@
+:root {
+  --maroon: #7a1e29;
+  --maroon-dark: #5c141d;
+  --ink: #1c1c1e;
+  --paper: #ffffff;
+  --panel-bg: #ffffff;
+  --border: #e4e0dd;
+  --shadow: 0 6px 24px rgba(0, 0, 0, 0.16);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* An author `display` rule on an element (e.g. `#foo { display: flex }`)
+   always beats the browser's built-in `[hidden] { display: none }` rule,
+   regardless of specificity — origin trumps specificity in the cascade. Any
+   element toggled via the `hidden` attribute/property needs this to actually
+   disappear. */
+[hidden] {
+  display: none !important;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  overflow: hidden;
+}
+
+#app {
+  position: relative;
+  height: 100dvh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Top bar                                                                 */
+/* ---------------------------------------------------------------------- */
+
+#top-bar {
+  position: relative;
+  z-index: 500;
+  background: var(--maroon);
+  padding: calc(10px + var(--safe-top)) 12px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  box-shadow: var(--shadow);
+}
+
+#brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  font-weight: 700;
+  flex: 0 0 auto;
+}
+
+.brand-crest {
+  display: block;
+  width: 26px;
+  height: 26px;
+  padding: 3px;
+  border-radius: 6px;
+  background: #fff;
+  object-fit: contain;
+}
+
+.brand-text {
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+#search-form {
+  position: relative;
+  flex: 1 1 220px;
+  display: flex;
+  align-items: center;
+}
+
+#search-input {
+  width: 100%;
+  padding: 10px 36px 10px 14px;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  background: #fff;
+  color: var(--ink);
+}
+
+#search-input:focus {
+  outline: 2px solid #fff;
+  outline-offset: 2px;
+}
+
+#search-clear {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  color: #888;
+  cursor: pointer;
+  padding: 4px;
+}
+
+#sw-version {
+  flex: 0 0 auto;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.7);
+  white-space: nowrap;
+}
+
+#search-results {
+  position: absolute;
+  top: 100%;
+  left: 12px;
+  right: 12px;
+  margin-top: 6px;
+  background: var(--panel-bg);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  list-style: none;
+  padding: 6px;
+  max-height: 60vh;
+  overflow-y: auto;
+  z-index: 600;
+}
+
+.search-result {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.search-result:hover,
+.search-result:active {
+  background: #f4efee;
+}
+
+.result-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.result-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.result-name {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.result-meta {
+  font-size: 12px;
+  color: #7a7a7a;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Category chips                                                         */
+/* ---------------------------------------------------------------------- */
+
+#category-chips {
+  position: relative;
+  z-index: 400;
+  display: flex;
+  gap: 8px;
+  padding: 8px 12px;
+  overflow-x: auto;
+  background: #f7f4f3;
+  border-bottom: 1px solid var(--border);
+  scrollbar-width: none;
+}
+
+#category-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  background: #fff;
+  color: #444;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip.active {
+  background: var(--chip-color, var(--maroon));
+  border-color: var(--chip-color, var(--maroon));
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Map                                                                     */
+/* ---------------------------------------------------------------------- */
+
+#map {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  z-index: 1;
+}
+
+#edit-mode-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 450;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: var(--maroon);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+#edit-mode-btn:active {
+  background: #f0eae9;
+}
+
+#edit-mode-btn.active {
+  background: #c77c11;
+  color: #fff;
+}
+
+/* Edit-mode-only — see index.html for details. */
+#entrance-building-select {
+  position: absolute;
+  top: 60px;
+  right: 12px;
+  z-index: 450;
+  max-width: calc(100% - 24px);
+  padding: 9px 10px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  color: var(--ink);
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.building-pin-dot {
+  display: block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.user-pin-dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #2a7de1;
+  border: 3px solid #fff;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+  position: relative;
+  z-index: 2;
+}
+
+.user-pin-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-radius: 50%;
+  background: rgba(42, 125, 225, 0.5);
+  animation: pulse 2s ease-out infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  100% {
+    transform: scale(2.6);
+    opacity: 0;
+  }
+}
+
+.destination-pin-dot {
+  display: block;
+  width: 24px;
+  height: 24px;
+  position: relative;
+}
+
+.destination-pin-dot::before {
+  content: "";
+  position: absolute;
+  left: 3px;
+  top: 0;
+  width: 18px;
+  height: 18px;
+  border-radius: 50% 50% 50% 0;
+  background: var(--maroon);
+  transform: rotate(-45deg);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.destination-pin-dot::after {
+  content: "";
+  position: absolute;
+  left: 9px;
+  top: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #fff;
+}
+
+/* Edit-mode-only: marks a building entrance (js/buildings-data.js's
+   `entrances` arrays). Hidden unless edit mode is on. */
+.entrance-pin-dot {
+  display: block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #2ecc71;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.map-tooltip .maplibregl-popup-tip {
+  display: none;
+}
+
+.map-tooltip .maplibregl-popup-content {
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--ink);
+  background: var(--panel-bg);
+  box-shadow: var(--shadow);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Locate button                                                          */
+/* ---------------------------------------------------------------------- */
+
+#locate-btn {
+  position: absolute;
+  right: 12px;
+  bottom: calc(96px + var(--safe-bottom));
+  z-index: 450;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: var(--maroon);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+#locate-btn:active {
+  background: #f0eae9;
+}
+
+#rotate-btn {
+  position: absolute;
+  right: 12px;
+  bottom: calc(152px + var(--safe-bottom));
+  z-index: 450;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: var(--maroon);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.3s;
+}
+
+#rotate-btn:active {
+  background: #f0eae9;
+}
+
+#rotate-btn.active {
+  background: var(--maroon);
+  color: #fff;
+}
+
+/* Edit-mode-only — see index.html for details. */
+#simulate-location-btn {
+  position: absolute;
+  right: 12px;
+  bottom: calc(208px + var(--safe-bottom));
+  z-index: 450;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: var(--maroon);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+#simulate-location-btn:active {
+  background: #f0eae9;
+}
+
+#simulate-location-btn.active {
+  background: #c77c11;
+  color: #fff;
+}
+
+/* Edit-mode-only — see index.html for details. */
+#add-entrance-btn {
+  position: absolute;
+  right: 12px;
+  bottom: calc(264px + var(--safe-bottom));
+  z-index: 450;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: var(--maroon);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+#add-entrance-btn:active {
+  background: #f0eae9;
+}
+
+#add-entrance-btn.active {
+  background: #c77c11;
+  color: #fff;
+}
+
+/* Edit-mode-only — see index.html for details. */
+#download-data-btn {
+  position: absolute;
+  right: 12px;
+  bottom: calc(320px + var(--safe-bottom));
+  z-index: 450;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: var(--maroon);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+#download-data-btn:active {
+  background: #f0eae9;
+}
+
+/* Edit-mode-only — see index.html for details. */
+#show-osm-paths-btn {
+  position: absolute;
+  right: 12px;
+  bottom: calc(376px + var(--safe-bottom));
+  z-index: 450;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  background: #fff;
+  color: var(--maroon);
+  box-shadow: var(--shadow);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+}
+
+#show-osm-paths-btn:active {
+  background: #f0eae9;
+}
+
+#show-osm-paths-btn.active {
+  background: #c77c11;
+  color: #fff;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Route panel                                                            */
+/* ---------------------------------------------------------------------- */
+
+#route-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 500;
+  background: var(--panel-bg);
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.18);
+  padding: 8px 16px calc(16px + var(--safe-bottom));
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+#route-panel-handle {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+}
+
+#route-summary {
+  flex: 1;
+  padding-top: 14px;
+  min-width: 0;
+}
+
+#route-destination {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#route-stats {
+  margin-top: 2px;
+  font-size: 14px;
+  color: #5a5a5a;
+}
+
+#route-warning {
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: #a15c1e;
+  background: #fdf1e4;
+  border-radius: 8px;
+  padding: 6px 8px;
+}
+
+#route-close {
+  margin-top: 14px;
+  border: none;
+  background: #f0eae9;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  color: #555;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Toast                                                                  */
+/* ---------------------------------------------------------------------- */
+
+#toast {
+  position: absolute;
+  left: 50%;
+  bottom: calc(24px + var(--safe-bottom));
+  transform: translateX(-50%);
+  z-index: 700;
+  background: rgba(28, 28, 30, 0.92);
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  max-width: 88vw;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+/* ---------------------------------------------------------------------- */
+/* Dark mode                                                              */
+/* ---------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ink: #f2f0ef;
+    --paper: #17181a;
+    --panel-bg: #232426;
+    --border: #3a3b3d;
+  }
+
+  body {
+    background: var(--paper);
+  }
+
+  #category-chips {
+    background: #1d1e20;
+  }
+
+  .chip {
+    background: #232426;
+    color: #ddd;
+    border-color: #3a3b3d;
+  }
+
+  .search-result:hover,
+  .search-result:active {
+    background: #2c2d2f;
+  }
+
+  .result-meta {
+    color: #a3a3a3;
+  }
+
+  #locate-btn {
+    background: #232426;
+  }
+
+  #simulate-location-btn {
+    background: #232426;
+  }
+
+  #add-entrance-btn {
+    background: #232426;
+  }
+
+  #download-data-btn {
+    background: #232426;
+  }
+
+  #show-osm-paths-btn {
+    background: #232426;
+  }
+
+  #edit-mode-btn {
+    background: #232426;
+  }
+
+  #entrance-building-select {
+    background: #232426;
+    color: #eee;
+  }
+
+  #route-stats {
+    color: #c7c7c7;
+  }
+
+  #route-close {
+    background: #2c2d2f;
+    color: #eee;
+  }
+}
+
+/* ---------------------------------------------------------------------- */
+/* Small screens                                                          */
+/* ---------------------------------------------------------------------- */
+
+@media (max-width: 380px) {
+  .brand-text {
+    display: none;
+  }
+}
