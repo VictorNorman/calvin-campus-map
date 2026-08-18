@@ -1,6 +1,56 @@
 "use strict";
 
 // ---------------------------------------------------------------------------
+// Debug log capture (edit-mode tool). Mirrors console.log/warn/error into an
+// in-memory buffer so it can be viewed and copied directly on a phone, no
+// cable needed — see setShowingDebugConsole further down. Wrapped as early
+// as possible in the file so nothing logged before the panel is ever opened
+// gets missed; the real console methods still run as normal.
+// ---------------------------------------------------------------------------
+
+const DEBUG_LOG_MAX_ENTRIES = 300;
+const debugLog = [];
+
+function captureConsole(level, args) {
+  const text = args
+    .map((a) => {
+      if (a instanceof Error) {
+        return a.stack || a.message;
+      }
+      if (a !== null && typeof a === "object") {
+        try {
+          return JSON.stringify(a);
+        } catch (err) {
+          return String(a);
+        }
+      }
+      return String(a);
+    })
+    .join(" ");
+
+  const entry = {
+    level,
+    text,
+    time: new Date(),
+  };
+  debugLog.push(entry);
+  if (debugLog.length > DEBUG_LOG_MAX_ENTRIES) {
+    debugLog.shift();
+  }
+  if (typeof renderDebugLogEntry === "function") {
+    renderDebugLogEntry(entry);
+  }
+}
+
+["log", "warn", "error"].forEach((level) => {
+  const original = console[level].bind(console);
+  console[level] = (...args) => {
+    original(...args);
+    captureConsole(level, args);
+  };
+});
+
+// ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
@@ -70,6 +120,7 @@ let editMode = false;
 let simulatingLocation = false;
 let addingEntrance = false;
 let showingOsmPaths = false;
+let showingDebugConsole = false;
 
 // ---------------------------------------------------------------------------
 // Geo helpers (replace Leaflet's LatLng utilities now that we're on MapLibre)
@@ -687,6 +738,92 @@ if (downloadDataBtn) {
 }
 
 // ---------------------------------------------------------------------------
+// Debug console (edit-mode tool). See the capture setup at the very top of
+// this file for how entries get into `debugLog` in the first place.
+// ---------------------------------------------------------------------------
+
+const debugConsolePanel = document.getElementById("debug-console-panel");
+const debugConsoleLogEl = document.getElementById("debug-console-log");
+const debugConsoleBtn = document.getElementById("debug-console-btn");
+
+function formatDebugTime(date) {
+  return date.toTimeString().slice(0, 8);
+}
+
+// Appends one entry to the on-screen panel (only does DOM work while the
+// panel is actually open — captureConsole still buffers every entry
+// regardless, so opening the panel later shows history via renderDebugLog).
+function renderDebugLogEntry(entry) {
+  if (!debugConsoleLogEl || debugConsolePanel.hidden) {
+    return;
+  }
+  const line = document.createElement("div");
+  line.className = `debug-log-entry ${entry.level}`;
+  line.innerHTML =
+    `<span class="debug-log-time">${formatDebugTime(entry.time)}</span>` + escapeHtml(entry.text);
+  debugConsoleLogEl.appendChild(line);
+  debugConsoleLogEl.scrollTop = debugConsoleLogEl.scrollHeight;
+}
+
+function renderDebugLog() {
+  if (!debugConsoleLogEl) {
+    return;
+  }
+  debugConsoleLogEl.innerHTML = "";
+  debugLog.forEach((entry) => {
+    const line = document.createElement("div");
+    line.className = `debug-log-entry ${entry.level}`;
+    line.innerHTML =
+      `<span class="debug-log-time">${formatDebugTime(entry.time)}</span>` + escapeHtml(entry.text);
+    debugConsoleLogEl.appendChild(line);
+  });
+  debugConsoleLogEl.scrollTop = debugConsoleLogEl.scrollHeight;
+}
+
+function setShowingDebugConsole(enabled) {
+  showingDebugConsole = enabled;
+  debugConsoleBtn.classList.toggle("active", showingDebugConsole);
+  debugConsolePanel.hidden = !showingDebugConsole;
+  if (showingDebugConsole) {
+    renderDebugLog();
+  }
+}
+
+if (debugConsoleBtn) {
+  debugConsoleBtn.addEventListener("click", () => {
+    setShowingDebugConsole(!showingDebugConsole);
+  });
+}
+
+const debugConsoleCloseBtn = document.getElementById("debug-console-close");
+if (debugConsoleCloseBtn) {
+  debugConsoleCloseBtn.addEventListener("click", () => setShowingDebugConsole(false));
+}
+
+const debugConsoleClearBtn = document.getElementById("debug-console-clear");
+if (debugConsoleClearBtn) {
+  debugConsoleClearBtn.addEventListener("click", () => {
+    debugLog.length = 0;
+    renderDebugLog();
+  });
+}
+
+const debugConsoleCopyBtn = document.getElementById("debug-console-copy");
+if (debugConsoleCopyBtn) {
+  debugConsoleCopyBtn.addEventListener("click", async () => {
+    const text = debugLog
+      .map((entry) => `[${formatDebugTime(entry.time)}] ${entry.level.toUpperCase()}: ${entry.text}`)
+      .join("\n");
+    try {
+      await navigator.clipboard.writeText(text || "(no log entries yet)");
+      showToast("Logs copied to clipboard.");
+    } catch (err) {
+      showToast("Couldn't copy — clipboard access may be blocked.");
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
 // Edit mode toggle
 // ---------------------------------------------------------------------------
 
@@ -702,6 +839,7 @@ function setEditMode(enabled) {
   addEntranceBtn.hidden = !editMode;
   downloadDataBtn.hidden = !editMode;
   showOsmPathsBtn.hidden = !editMode;
+  debugConsoleBtn.hidden = !editMode;
 
   if (!editMode) {
     if (simulatingLocation) {
@@ -712,6 +850,9 @@ function setEditMode(enabled) {
     }
     if (showingOsmPaths) {
       setShowingOsmPaths(false);
+    }
+    if (showingDebugConsole) {
+      setShowingDebugConsole(false);
     }
   }
 }
@@ -961,11 +1102,15 @@ async function fetchOsrmRoute(url) {
     signal: AbortSignal.timeout(OSRM_TIMEOUT_MS),
   });
   if (!res.ok) {
-    throw new Error(`Routing service returned ${res.status}`);
+    // Include the response body in the error — if this is a rate limit,
+    // OSRM's own explanation (e.g. "Too Many Requests") will be in here,
+    // which is otherwise invisible since we never see the raw response.
+    const bodyText = await res.text().catch(() => "");
+    throw new Error(`Routing service returned ${res.status}${bodyText ? `: ${bodyText.slice(0, 200)}` : ""}`);
   }
   const data = await res.json();
   if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
-    throw new Error("No walking route found");
+    throw new Error(`No walking route found (code: ${data.code || "unknown"})`);
   }
   return data.routes[0];
 }
