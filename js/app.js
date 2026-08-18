@@ -15,7 +15,12 @@ function captureConsole(level, args) {
   const text = args
     .map((a) => {
       if (a instanceof Error) {
-        return a.stack || a.message;
+        // Chrome's Error.stack repeats "Name: message" as its first line;
+        // Safari's doesn't include the message at all, just stack frames —
+        // so preferring .stack alone silently drops the actual error text
+        // on iOS. Always lead with .message, append .stack as detail.
+        const stack = a.stack && a.stack !== a.message ? `\n${a.stack}` : "";
+        return `${a.message || String(a)}${stack}`;
       }
       if (a !== null && typeof a === "object") {
         try {
@@ -97,6 +102,17 @@ const CATEGORY_COLORS = {
 const HEADING_MIN_DELTA_DEG = 8;
 const HEADING_MIN_MOVE_METERS = 5;
 
+// How often onPosition is allowed to re-request a route just because a new
+// GPS fix arrived (not because the user did something). watchPosition can
+// fire far faster than this — sometimes multiple times a second — and
+// without a limit, every single fix fired its own routing request with no
+// regard for whether the previous one had even finished, flooding the
+// browser's per-origin connection limit and making requests abort each
+// other out. A route is re-fetched once at least this much time OR this
+// much movement has happened since the last fetch, whichever comes first.
+const ROUTE_REFRESH_MIN_INTERVAL_MS = 4000;
+const ROUTE_REFRESH_MIN_MOVE_METERS = 15;
+
 // ---------------------------------------------------------------------------
 // State
 // ---------------------------------------------------------------------------
@@ -112,6 +128,8 @@ let followUser = true;
 let buildingMarkers = [];
 let lastUserLatLng = null;
 let lastHeading = null;
+let lastRouteRequestAt = 0;
+let lastRouteRequestLatLng = null;
 let mapRotationEnabled = false;
 let mapReady = false;
 // Edit mode: gates map-building/testing tools (entrance pins, simulated
@@ -451,9 +469,20 @@ function onPosition(pos) {
     });
   }
 
-  // If a destination is already selected, keep the route in sync with movement.
+  // If a destination is already selected, keep the route in sync with
+  // movement — but only as often as ROUTE_REFRESH_MIN_INTERVAL_MS/METERS
+  // allow, since GPS fixes can arrive far faster than that. Explicit user
+  // actions (selectBuilding, simulate-location) call requestRoute directly
+  // and skip this throttle entirely — it only paces the passive "you moved"
+  // trigger.
   if (activeBuilding) {
-    requestRoute(activeBuilding);
+    const sinceLastMs = Date.now() - lastRouteRequestAt;
+    const movedSinceLastRoute = lastRouteRequestLatLng
+      ? distanceMeters(lastRouteRequestLatLng, userLatLng)
+      : Infinity;
+    if (sinceLastMs > ROUTE_REFRESH_MIN_INTERVAL_MS || movedSinceLastRoute > ROUTE_REFRESH_MIN_MOVE_METERS) {
+      requestRoute(activeBuilding);
+    }
   }
 }
 
@@ -1097,10 +1126,23 @@ function selectBuilding(building) {
 const OSRM_TIMEOUT_MS = 12000;
 const OSRM_RETRY_DELAY_MS = 1200;
 
-async function fetchOsrmRoute(url) {
-  const res = await fetch(url, {
-    signal: AbortSignal.timeout(OSRM_TIMEOUT_MS),
+// AbortSignal.any() would do this in one line, but it's a newer API
+// (Safari 17.4+) — combining manually avoids gambling on exactly which iOS
+// version this runs on.
+function combineAbortSignals(signals) {
+  const controller = new AbortController();
+  signals.forEach((s) => {
+    if (s.aborted) {
+      controller.abort();
+    } else {
+      s.addEventListener("abort", () => controller.abort(), { once: true });
+    }
   });
+  return controller.signal;
+}
+
+async function fetchOsrmRoute(url, signal) {
+  const res = await fetch(url, { signal });
   if (!res.ok) {
     // Include the response body in the error — if this is a rate limit,
     // OSRM's own explanation (e.g. "Too Many Requests") will be in here,
@@ -1114,6 +1156,14 @@ async function fetchOsrmRoute(url) {
   }
   return data.routes[0];
 }
+
+// The routing request currently "owned" by the latest requestRoute() call.
+// Starting a new one aborts whatever the previous one was still doing —
+// GPS updates can arrive faster than OSRM responds, and without this,
+// overlapping requests pile up unbounded instead of the newest one simply
+// replacing the last (see ROUTE_REFRESH_MIN_INTERVAL_MS above for the
+// complementary fix that stops so many from starting in the first place).
+let currentRouteController = null;
 
 async function requestRoute(building) {
   const entrance = nearestEntrance(building, userLatLng);
@@ -1130,19 +1180,38 @@ async function requestRoute(building) {
     return;
   }
 
+  lastRouteRequestAt = Date.now();
+  lastRouteRequestLatLng = userLatLng;
+
+  if (currentRouteController) {
+    currentRouteController.abort();
+  }
+  const controller = new AbortController();
+  currentRouteController = controller;
+  const superseded = () => controller.signal.aborted;
+
   const url =
     `${OSRM_FOOT_URL}${userLatLng.lng},${userLatLng.lat};${entrance.lon},${entrance.lat}` +
     `?overview=full&geometries=geojson`;
 
   let route;
   try {
-    route = await fetchOsrmRoute(url);
+    route = await fetchOsrmRoute(url, combineAbortSignals([controller.signal, AbortSignal.timeout(OSRM_TIMEOUT_MS)]));
   } catch (firstErr) {
+    if (superseded()) {
+      return; // a newer request replaced this one — not a real failure
+    }
     console.warn("Routing failed, retrying once:", firstErr);
     await new Promise((resolve) => setTimeout(resolve, OSRM_RETRY_DELAY_MS));
+    if (superseded()) {
+      return;
+    }
     try {
-      route = await fetchOsrmRoute(url);
+      route = await fetchOsrmRoute(url, combineAbortSignals([controller.signal, AbortSignal.timeout(OSRM_TIMEOUT_MS)]));
     } catch (secondErr) {
+      if (superseded()) {
+        return;
+      }
       console.warn("Routing failed again, falling back to straight line:", secondErr);
       const straight = [
         [userLatLng.lng, userLatLng.lat],
