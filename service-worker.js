@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "v22";
+const CACHE_VERSION = "v23";
 const SHELL_CACHE = `calvin-map-shell-${CACHE_VERSION}`;
 const TILE_CACHE = `calvin-map-tiles-${CACHE_VERSION}`;
 
@@ -20,12 +20,11 @@ const SHELL_ASSETS = [
 ];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(
-    caches
-      .open(SHELL_CACHE)
-      .then((cache) => cache.addAll(SHELL_ASSETS))
-      .then(() => self.skipWaiting())
-  );
+  // No self.skipWaiting() here on purpose — a newly-installed worker now
+  // stays "waiting" until the page explicitly tells it to take over (see
+  // the "skip-waiting" message below), which only happens once the user
+  // has confirmed the update prompt in app.js's registerServiceWorker.
+  event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS)));
 });
 
 self.addEventListener("activate", (event) => {
@@ -43,14 +42,21 @@ self.addEventListener("activate", (event) => {
   );
 });
 
-// Lets the page ask which cache version this worker is actually running,
-// for the dev label in the top bar (see app.js's requestServiceWorkerVersion).
 self.addEventListener("message", (event) => {
+  // Lets the page ask which cache version this worker is actually running,
+  // for the dev label in the top bar (see app.js's requestServiceWorkerVersion).
   if (event.data && event.data.type === "get-version") {
     event.source.postMessage({
       type: "sw-version",
       version: CACHE_VERSION,
     });
+  }
+
+  // Sent only after the user agrees to the "update available" prompt — see
+  // app.js's registerServiceWorker. Lets this waiting worker finally
+  // activate and take over.
+  if (event.data && event.data.type === "skip-waiting") {
+    self.skipWaiting();
   }
 });
 

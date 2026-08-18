@@ -188,6 +188,52 @@ body {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Update banner                                                          */
+/* ---------------------------------------------------------------------- */
+
+#update-banner {
+  position: relative;
+  z-index: 490;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 14px;
+  background: #fdf1e4;
+  border-bottom: 1px solid #eecfa0;
+  color: var(--ink);
+  font-size: 13.5px;
+}
+
+#update-banner-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+#update-banner-update {
+  border: none;
+  background: var(--maroon);
+  color: #fff;
+  border-radius: 8px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+#update-banner-dismiss {
+  border: none;
+  background: transparent;
+  color: #7a5a2e;
+  font-size: 18px;
+  line-height: 1;
+  padding: 4px 6px;
+  cursor: pointer;
+}
+
+/* ---------------------------------------------------------------------- */
 /* Category chips                                                         */
 /* ---------------------------------------------------------------------- */
 
@@ -774,6 +820,16 @@ body {
 
   #category-chips {
     background: #1d1e20;
+  }
+
+  #update-banner {
+    background: #3a2e1a;
+    border-bottom-color: #5a4526;
+    color: #f2e6d0;
+  }
+
+  #update-banner-dismiss {
+    color: #d9b877;
   }
 
   .chip {

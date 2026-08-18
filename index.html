@@ -38,6 +38,16 @@
       <ul id="search-results" role="listbox" hidden></ul>
     </header>
 
+    <!-- Shown when a new service worker has finished downloading and is
+         waiting to take over — see registerServiceWorker in app.js. -->
+    <div id="update-banner" role="status" hidden>
+      <span id="update-banner-text">A new version is available.</span>
+      <div id="update-banner-actions">
+        <button id="update-banner-update" type="button">Update</button>
+        <button id="update-banner-dismiss" type="button" aria-label="Dismiss">&times;</button>
+      </div>
+    </div>
+
     <div id="category-chips" aria-label="Filter by category"></div>
 
     <main id="map">
