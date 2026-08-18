@@ -44,8 +44,8 @@ const CATEGORY_COLORS = {
 // How far the map's bearing may drift from the user's heading before we
 // re-center it, and how far the user must move before a heading reading is
 // trusted at all. Both guard against GPS jitter making the map twitch.
-const HEADING_MIN_DELTA_DEG = 3;
-const HEADING_MIN_MOVE_METERS = 2;
+const HEADING_MIN_DELTA_DEG = 8;
+const HEADING_MIN_MOVE_METERS = 5;
 
 // ---------------------------------------------------------------------------
 // State
@@ -346,10 +346,16 @@ function onPosition(pos) {
   }
 
   // Calculate heading from the last fix, ignoring tiny jitters that GPS
-  // noise would otherwise turn into a twitchy map.
+  // noise would otherwise turn into a twitchy map. Real GPS accuracy is
+  // often 5-15m (worse near buildings), so two consecutive fixes can drift
+  // that far apart from pure noise even while standing still — trusting a
+  // fixed small distance regardless of the fix's own reported accuracy is
+  // what let single noisy fixes snap the map to a bogus heading. Requiring
+  // the move to exceed the fix's own `accuracy` makes the threshold adapt:
+  // a sloppy fix needs a correspondingly bigger move before it's believed.
   if (lastUserLatLng) {
     const movedMeters = distanceMeters(lastUserLatLng, newLatLng);
-    if (movedMeters > HEADING_MIN_MOVE_METERS) {
+    if (movedMeters > Math.max(HEADING_MIN_MOVE_METERS, accuracy)) {
       const heading = bearingDegrees(lastUserLatLng, newLatLng);
       if (lastHeading === null || angularDeltaDeg(heading, lastHeading) > HEADING_MIN_DELTA_DEG) {
         lastHeading = heading;
@@ -451,11 +457,16 @@ if (rotateBtn) {
     mapRotationEnabled = !mapRotationEnabled;
     rotateBtn.classList.toggle("active", mapRotationEnabled);
 
-    if (mapRotationEnabled && lastHeading !== null) {
-      map.easeTo({
-        bearing: lastHeading,
-        duration: 300,
-      });
+    if (mapRotationEnabled) {
+      // Only rotate if we actually have a heading yet — otherwise leave the
+      // bearing alone rather than snapping it to 0. (onPosition will rotate
+      // to the real heading once one is computed.)
+      if (lastHeading !== null) {
+        map.easeTo({
+          bearing: lastHeading,
+          duration: 300,
+        });
+      }
     } else {
       map.easeTo({
         bearing: 0,
@@ -881,11 +892,11 @@ function nearestEntrance(building, from) {
     building.entrances && building.entrances.length > 0
       ? building.entrances
       : [
-          {
-            lat: building.lat,
-            lon: building.lon,
-          },
-        ];
+        {
+          lat: building.lat,
+          lon: building.lon,
+        },
+      ];
   // If any entrances are flagged preferred (e.g. the only one that's
   // actually unlocked, or the accessible one), route to the nearest of
   // those instead of the nearest of all of them — a slightly-closer
@@ -1349,7 +1360,7 @@ function requestServiceWorkerVersion() {
 
   navigator.serviceWorker.addEventListener("message", (event) => {
     if (event.data && event.data.type === "sw-version") {
-      label.textContent = `sw ${event.data.version}`;
+      label.textContent = `${event.data.version}`;
       label.hidden = false;
     }
   });
