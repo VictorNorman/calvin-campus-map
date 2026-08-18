@@ -948,6 +948,28 @@ function selectBuilding(building) {
   requestRoute(building);
 }
 
+// routing.openstreetmap.de is a free, shared public instance — like the
+// Overpass API this app also uses, it can have brief slow/busy patches
+// under completely normal use. One retry after a short pause rides out a
+// transient blip instead of immediately giving up and showing the
+// straight-line fallback.
+const OSRM_TIMEOUT_MS = 12000;
+const OSRM_RETRY_DELAY_MS = 1200;
+
+async function fetchOsrmRoute(url) {
+  const res = await fetch(url, {
+    signal: AbortSignal.timeout(OSRM_TIMEOUT_MS),
+  });
+  if (!res.ok) {
+    throw new Error(`Routing service returned ${res.status}`);
+  }
+  const data = await res.json();
+  if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
+    throw new Error("No walking route found");
+  }
+  return data.routes[0];
+}
+
 async function requestRoute(building) {
   const entrance = nearestEntrance(building, userLatLng);
   placeDestinationMarker(entrance);
@@ -967,37 +989,36 @@ async function requestRoute(building) {
     `${OSRM_FOOT_URL}${userLatLng.lng},${userLatLng.lat};${entrance.lon},${entrance.lat}` +
     `?overview=full&geometries=geojson`;
 
+  let route;
   try {
-    const res = await fetch(url, {
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) {
-      throw new Error(`Routing service returned ${res.status}`);
+    route = await fetchOsrmRoute(url);
+  } catch (firstErr) {
+    console.warn("Routing failed, retrying once:", firstErr);
+    await new Promise((resolve) => setTimeout(resolve, OSRM_RETRY_DELAY_MS));
+    try {
+      route = await fetchOsrmRoute(url);
+    } catch (secondErr) {
+      console.warn("Routing failed again, falling back to straight line:", secondErr);
+      const straight = [
+        [userLatLng.lng, userLatLng.lat],
+        [entrance.lon, entrance.lat],
+      ];
+      drawRoute(straight, true);
+      const meters = distanceMeters(userLatLng, {
+        lat: entrance.lat,
+        lng: entrance.lon,
+      });
+      const estSeconds = meters / 1.3; // ~1.3 m/s average walking speed
+      updateRouteStats(meters, estSeconds, true);
+      fitRouteBounds(straight);
+      return;
     }
-    const data = await res.json();
-    if (data.code !== "Ok" || !data.routes || data.routes.length === 0) {
-      throw new Error("No walking route found");
-    }
-    const route = data.routes[0];
-    const coords = route.geometry.coordinates; // already [lng, lat] pairs
-    drawRoute(coords, false);
-    updateRouteStats(route.distance, route.duration, false);
-    fitRouteBounds(coords);
-  } catch (err) {
-    console.warn("Routing failed, falling back to straight line:", err);
-    const straight = [
-      [userLatLng.lng, userLatLng.lat],
-      [entrance.lon, entrance.lat],
-    ];
-    drawRoute(straight, true);
-    const meters = distanceMeters(userLatLng, {
-      lat: entrance.lat,
-      lng: entrance.lon,
-    });
-    const estSeconds = meters / 1.3; // ~1.3 m/s average walking speed
-    updateRouteStats(meters, estSeconds, true);
-    fitRouteBounds(straight);
   }
+
+  const coords = route.geometry.coordinates; // already [lng, lat] pairs
+  drawRoute(coords, false);
+  updateRouteStats(route.distance, route.duration, false);
+  fitRouteBounds(coords);
 }
 
 // GeoJSON source + layers backing the route line. Two line layers share one
