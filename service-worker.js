@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "v25";
+const CACHE_VERSION = "v26";
 const SHELL_CACHE = `calvin-map-shell-${CACHE_VERSION}`;
 const TILE_CACHE = `calvin-map-tiles-${CACHE_VERSION}`;
 
@@ -24,7 +24,22 @@ self.addEventListener("install", (event) => {
   // stays "waiting" until the page explicitly tells it to take over (see
   // the "skip-waiting" message below), which only happens once the user
   // has confirmed the update prompt in app.js's registerServiceWorker.
-  event.waitUntil(caches.open(SHELL_CACHE).then((cache) => cache.addAll(SHELL_ASSETS)));
+  //
+  // { cache: "reload" } on each request is not optional here: plain
+  // cache.addAll(SHELL_ASSETS) fetches through the browser's normal HTTP
+  // cache, and Firebase Hosting serves these files with `Cache-Control:
+  // max-age=3600`. Without this, a new service worker installing within an
+  // hour of the previous visit would silently precache the STALE HTTP-
+  // cached copy instead of the actually-new deploy — the version label
+  // would report the new version correctly (service-worker.js itself is
+  // `no-cache`), while the real page content stayed old. Confirmed this
+  // exact failure mode by reproducing it against a local server with
+  // matching cache headers before writing this fix.
+  event.waitUntil(
+    caches
+      .open(SHELL_CACHE)
+      .then((cache) => cache.addAll(SHELL_ASSETS.map((url) => new Request(url, { cache: "reload" }))))
+  );
 });
 
 self.addEventListener("activate", (event) => {
