@@ -721,7 +721,7 @@ body {
   border-top-left-radius: 16px;
   border-top-right-radius: 16px;
   box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.18);
-  padding: 8px 16px calc(16px + var(--safe-bottom));
+  padding: 6px 16px calc(10px + var(--safe-bottom));
   display: flex;
   align-items: flex-start;
   gap: 10px;
@@ -729,7 +729,7 @@ body {
 
 #route-panel-handle {
   position: absolute;
-  top: 8px;
+  top: 7px;
   left: 50%;
   transform: translateX(-50%);
   width: 36px;
@@ -740,7 +740,7 @@ body {
 
 #route-summary {
   flex: 1;
-  padding-top: 14px;
+  padding-top: 9px;
   min-width: 0;
 }
 
@@ -754,28 +754,34 @@ body {
 }
 
 #route-stats {
-  margin-top: 2px;
+  margin-top: 1px;
   font-size: 14px;
   color: #5a5a5a;
 }
 
+/* Single line, truncated, rather than left to wrap — a wrapped second line
+   here was the single biggest contributor to the panel eating a quarter of
+   the screen on shorter iPhones. */
 #route-warning {
-  margin-top: 6px;
+  margin-top: 4px;
   font-size: 12.5px;
   color: #a15c1e;
   background: #fdf1e4;
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 5px 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 #route-close {
-  margin-top: 14px;
+  margin-top: 9px;
   border: none;
   background: #f0eae9;
-  width: 30px;
-  height: 30px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1;
   color: #555;
   cursor: pointer;
