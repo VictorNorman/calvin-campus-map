@@ -61,15 +61,15 @@ function onPosition(pos) {
     rotateBtn.hidden = false;
   }
 
-  // Calculate heading from the last fix, ignoring tiny jitters that GPS
-  // noise would otherwise turn into a twitchy map. Real GPS accuracy is
-  // often 5-15m (worse near buildings), so two consecutive fixes can drift
-  // that far apart from pure noise even while standing still — trusting a
-  // fixed small distance regardless of the fix's own reported accuracy is
-  // what let single noisy fixes snap the map to a bogus heading. Requiring
-  // the move to exceed the fix's own `accuracy` makes the threshold adapt:
-  // a sloppy fix needs a correspondingly bigger move before it's believed.
-  if (lastUserLatLng) {
+  // Heading is only tracked at all while rotation mode is actually on. It
+  // used to keep recalculating in the background even while off — invisibly,
+  // since nothing was displaying it — using noisy GPS course-over-ground at
+  // walking pace, so by the time you turned rotation back on it could snap
+  // straight to a stale value you never saw it drift to. That looked exactly
+  // like "the map rotates back" even though, technically, nothing was
+  // rotating while off. Simple rule now: off means off, full stop — no
+  // computation, no drift, nothing to snap to later.
+  if (mapRotationEnabled && lastUserLatLng) {
     const movedMeters = distanceMeters(lastUserLatLng, newLatLng);
     const threshold = Math.max(HEADING_MIN_MOVE_METERS, accuracy);
     console.log(`[heading] movedMeters=${movedMeters.toFixed(1)} threshold=${threshold.toFixed(1)}`);
@@ -82,13 +82,11 @@ function onPosition(pos) {
       );
       if (lastHeading === null || delta > HEADING_MIN_DELTA_DEG) {
         lastHeading = heading;
-        console.log(
-          `[heading] ACCEPTED heading=${heading.toFixed(1)}° followUser=${followUser} mapRotationEnabled=${mapRotationEnabled}`
-        );
+        console.log(`[heading] ACCEPTED heading=${heading.toFixed(1)}° followUser=${followUser}`);
         // MapLibre's `bearing` is already "the compass direction shown at
         // the top of the screen," so setting it straight to the heading is
         // what points the user's direction of travel up — no inversion.
-        if (followUser && mapRotationEnabled) {
+        if (followUser) {
           console.log(`[heading] map.easeTo bearing=${lastHeading.toFixed(1)}° (from onPosition)`);
           map.easeTo({
             bearing: lastHeading,
@@ -105,7 +103,7 @@ function onPosition(pos) {
       // cross the threshold.
       lastUserLatLng = newLatLng;
     }
-  } else {
+  } else if (mapRotationEnabled) {
     lastUserLatLng = newLatLng;
   }
 
@@ -224,6 +222,13 @@ if (rotateBtn) {
         bearing: 0,
         duration: 300,
       });
+      // Forget the old heading entirely rather than freezing it — turning
+      // rotation back on later should wait for a fresh, current reading
+      // instead of resuming with whatever direction you happened to be
+      // facing last time it was on.
+      lastHeading = null;
+      lastUserLatLng = null;
+      console.log("[heading] cleared lastHeading/lastUserLatLng — next enable starts fresh");
     }
   });
 }
