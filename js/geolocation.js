@@ -82,17 +82,24 @@ function onPosition(pos) {
       );
       if (lastHeading === null || delta > HEADING_MIN_DELTA_DEG) {
         lastHeading = heading;
-        console.log(`[heading] ACCEPTED heading=${heading.toFixed(1)}° followUser=${followUser}`);
+        console.log(`[heading] ACCEPTED heading=${heading.toFixed(1)}°`);
+        // Rotation is controlled by the rotate button alone (mapRotationEnabled,
+        // already gating this whole block) — it used to also require
+        // followUser, a separate "auto-recenter on me" flag that turns false
+        // the moment you drag the map or select a route. That meant heading
+        // was tracking correctly in the background the whole time, but the
+        // map would just silently never rotate to show it whenever followUser
+        // happened to be off, with no indication why. ON means rotated, full
+        // stop, regardless of followUser.
+        //
         // MapLibre's `bearing` is already "the compass direction shown at
         // the top of the screen," so setting it straight to the heading is
         // what points the user's direction of travel up — no inversion.
-        if (followUser) {
-          console.log(`[heading] map.easeTo bearing=${lastHeading.toFixed(1)}° (from onPosition)`);
-          map.easeTo({
-            bearing: lastHeading,
-            duration: 300,
-          });
-        }
+        console.log(`[heading] map.easeTo bearing=${lastHeading.toFixed(1)}° (from onPosition)`);
+        map.easeTo({
+          bearing: lastHeading,
+          duration: 300,
+        });
       } else {
         console.log(`[heading] rejected — delta ${delta.toFixed(1)}° <= ${HEADING_MIN_DELTA_DEG}°`);
       }
