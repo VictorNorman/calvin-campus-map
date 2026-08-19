@@ -708,87 +708,6 @@ body {
 }
 
 /* ---------------------------------------------------------------------- */
-/* Route panel                                                            */
-/* ---------------------------------------------------------------------- */
-
-#route-panel {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 500;
-  background: var(--panel-bg);
-  border-top-left-radius: 16px;
-  border-top-right-radius: 16px;
-  box-shadow: 0 -6px 24px rgba(0, 0, 0, 0.18);
-  padding: 6px 16px calc(10px + var(--safe-bottom));
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-#route-panel-handle {
-  position: absolute;
-  top: 7px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 36px;
-  height: 4px;
-  border-radius: 2px;
-  background: var(--border);
-}
-
-#route-summary {
-  flex: 1;
-  padding-top: 9px;
-  min-width: 0;
-}
-
-#route-destination {
-  font-size: 16px;
-  font-weight: 700;
-  color: var(--ink);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-#route-stats {
-  margin-top: 1px;
-  font-size: 14px;
-  color: #5a5a5a;
-}
-
-/* Single line, truncated, rather than left to wrap — a wrapped second line
-   here was the single biggest contributor to the panel eating a quarter of
-   the screen on shorter iPhones. */
-#route-warning {
-  margin-top: 4px;
-  font-size: 12.5px;
-  color: #a15c1e;
-  background: #fdf1e4;
-  border-radius: 8px;
-  padding: 5px 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-#route-close {
-  margin-top: 9px;
-  border: none;
-  background: #f0eae9;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  font-size: 17px;
-  line-height: 1;
-  color: #555;
-  cursor: pointer;
-  flex: 0 0 auto;
-}
-
-/* ---------------------------------------------------------------------- */
 /* Toast                                                                  */
 /* ---------------------------------------------------------------------- */
 
@@ -886,14 +805,6 @@ body {
     color: #eee;
   }
 
-  #route-stats {
-    color: #c7c7c7;
-  }
-
-  #route-close {
-    background: #2c2d2f;
-    color: #eee;
-  }
 }
 
 /* ---------------------------------------------------------------------- */

@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "v24";
+const CACHE_VERSION = "v25";
 const SHELL_CACHE = `calvin-map-shell-${CACHE_VERSION}`;
 const TILE_CACHE = `calvin-map-tiles-${CACHE_VERSION}`;
 

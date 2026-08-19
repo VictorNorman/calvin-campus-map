@@ -953,10 +953,12 @@ function renderResults(results) {
       </span>
     `;
     li.addEventListener("click", () => {
-      selectBuilding(b);
-      searchInput.value = b.name;
+      // Blur before selecting — setSearchInputStatus (called from
+      // selectBuilding) skips updating the field while it's focused, so
+      // focus has to be gone first or the destination status never shows.
       searchResultsEl.hidden = true;
       searchInput.blur();
+      selectBuilding(b);
     });
     searchResultsEl.appendChild(li);
   });
@@ -972,10 +974,18 @@ function escapeHtml(str) {
 searchInput.addEventListener("input", () => {
   const val = searchInput.value;
   searchClearBtn.hidden = val.length === 0;
+  updateClearButtonLabel();
   renderResults(searchBuildings(val));
 });
 
 searchInput.addEventListener("focus", () => {
+  // The field is showing "{destination} — {status}" rather than something
+  // the user typed — select it all so the next keystroke replaces it
+  // outright, instead of trying to search for that whole string.
+  if (activeBuilding) {
+    searchInput.select();
+    return;
+  }
   if (searchInput.value) {
     renderResults(searchBuildings(searchInput.value));
   }
@@ -985,14 +995,16 @@ searchForm.addEventListener("submit", (e) => {
   e.preventDefault();
   const results = searchBuildings(searchInput.value);
   if (results.length > 0) {
-    selectBuilding(results[0]);
-    searchInput.value = results[0].name;
     searchResultsEl.hidden = true;
     searchInput.blur();
+    selectBuilding(results[0]);
   }
 });
 
 searchClearBtn.addEventListener("click", () => {
+  if (activeBuilding) {
+    cancelActiveRoute();
+  }
   searchInput.value = "";
   searchClearBtn.hidden = true;
   searchResultsEl.hidden = true;
@@ -1114,8 +1126,38 @@ function placeDestinationMarker(entrance) {
 
 function selectBuilding(building) {
   activeBuilding = building;
-  showRoutePanel(building);
+  setSearchInputStatus(building, "Calculating…");
   requestRoute(building);
+}
+
+// The search box already shows the chosen destination's name, so it also
+// carries the route status instead of a separate panel — "{name} —
+// {suffix}". Skipped while the box is focused so an async update (e.g. a
+// route response arriving late) can't clobber text the user is mid-typing
+// to search for something else.
+function setSearchInputStatus(building, suffix) {
+  if (document.activeElement === searchInput) {
+    return;
+  }
+  searchInput.value = suffix ? `${building.name} — ${suffix}` : building.name;
+  searchClearBtn.hidden = false;
+  updateClearButtonLabel();
+}
+
+// While a destination is active, the × button cancels its route (in
+// addition to clearing the text) — reflect that in its accessible name
+// rather than leaving it stuck on the plain "Clear search" label.
+function updateClearButtonLabel() {
+  searchClearBtn.setAttribute("aria-label", activeBuilding ? `Cancel route to ${activeBuilding.name}` : "Clear search");
+}
+
+function cancelActiveRoute() {
+  if (destinationMarker) {
+    destinationMarker.remove();
+    destinationMarker = null;
+  }
+  clearRouteLine();
+  activeBuilding = null;
 }
 
 // routing.openstreetmap.de is a free, shared public instance — like the
@@ -1170,7 +1212,7 @@ async function requestRoute(building) {
   placeDestinationMarker(entrance);
 
   if (!userLatLng) {
-    setRouteWarning("Waiting for your location… showing destination only.");
+    setSearchInputStatus(building, "waiting for your location…");
     clearRouteLine();
     map.easeTo({
       center: [entrance.lon, entrance.lat],
@@ -1223,7 +1265,7 @@ async function requestRoute(building) {
         lng: entrance.lon,
       });
       const estSeconds = meters / 1.3; // ~1.3 m/s average walking speed
-      updateRouteStats(meters, estSeconds, true);
+      updateRouteStats(building, meters, estSeconds, true);
       fitRouteBounds(straight);
       return;
     }
@@ -1231,7 +1273,7 @@ async function requestRoute(building) {
 
   const coords = route.geometry.coordinates; // already [lng, lat] pairs
   drawRoute(coords, false);
-  updateRouteStats(route.distance, route.duration, false);
+  updateRouteStats(building, route.distance, route.duration, false);
   fitRouteBounds(coords);
 }
 
@@ -1347,44 +1389,12 @@ function formatDuration(seconds) {
   return `${mins} min`;
 }
 
-function updateRouteStats(meters, seconds, isFallback) {
-  const statsEl = document.getElementById("route-stats");
-  statsEl.textContent = `${formatDistance(meters)} · about ${formatDuration(seconds)} walking`;
-  setRouteWarning(
-    isFallback
-      ? "No mapped walking path found — showing a straight-line estimate."
-      : null
-  );
+function updateRouteStats(building, meters, seconds, isFallback) {
+  const suffix = isFallback
+    ? `${formatDistance(meters)} · about ${formatDuration(seconds)} (straight line)`
+    : `${formatDistance(meters)} · about ${formatDuration(seconds)} walking`;
+  setSearchInputStatus(building, suffix);
 }
-
-function setRouteWarning(message) {
-  const warnEl = document.getElementById("route-warning");
-  if (message) {
-    warnEl.textContent = message;
-    warnEl.hidden = false;
-  } else {
-    warnEl.hidden = true;
-  }
-}
-
-function showRoutePanel(building) {
-  const panel = document.getElementById("route-panel");
-  document.getElementById("route-destination").textContent = building.name;
-  document.getElementById("route-stats").textContent = "Calculating route…";
-  setRouteWarning(null);
-  panel.hidden = false;
-}
-
-document.getElementById("route-close").addEventListener("click", () => {
-  document.getElementById("route-panel").hidden = true;
-  if (destinationMarker) {
-    destinationMarker.remove();
-    destinationMarker = null;
-  }
-  clearRouteLine();
-  activeBuilding = null;
-  searchInput.value = "";
-});
 
 // ---------------------------------------------------------------------------
 // User accuracy circle
