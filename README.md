@@ -7,7 +7,7 @@ parking lot, or campus store.
 ## Features
 
 - **Live location** — tracks and follows your GPS position with an accuracy
-  circle (`js/app.js`'s `initGeolocation`).
+  circle (`js/geolocation.js`'s `initGeolocation`).
 - **Search** — type a building/room name ("Visitor Center", "Admissions",
   "Event Parking", "Campus Store", dorm names, parking lots, etc.) and jump
   straight to it. Data lives in `js/buildings-data.js`, loaded via a plain

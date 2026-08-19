@@ -39,7 +39,7 @@
     </header>
 
     <!-- Shown when a new service worker has finished downloading and is
-         waiting to take over — see registerServiceWorker in app.js. -->
+         waiting to take over — see registerServiceWorker in js/sw-client.js. -->
     <div id="update-banner" role="status" hidden>
       <span id="update-banner-text">A new version is available.</span>
       <div id="update-banner-actions">
@@ -144,6 +144,12 @@
 
   <script src="vendor/maplibre/maplibre-gl.js"></script>
   <script src="js/buildings-data.js"></script>
-  <script src="js/app.js"></script>
+  <script src="js/core.js"></script>
+  <script src="js/map-setup.js"></script>
+  <script src="js/geolocation.js"></script>
+  <script src="js/search-and-routing.js"></script>
+  <script src="js/edit-mode.js"></script>
+  <script src="js/sw-client.js"></script>
+  <script src="js/init.js"></script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_VERSION = "v26";
+const CACHE_VERSION = "v27";
 const SHELL_CACHE = `calvin-map-shell-${CACHE_VERSION}`;
 const TILE_CACHE = `calvin-map-tiles-${CACHE_VERSION}`;
 
@@ -9,7 +9,13 @@ const SHELL_ASSETS = [
   "./index.html",
   "./manifest.webmanifest",
   "./css/style.css",
-  "./js/app.js",
+  "./js/core.js",
+  "./js/map-setup.js",
+  "./js/geolocation.js",
+  "./js/search-and-routing.js",
+  "./js/edit-mode.js",
+  "./js/sw-client.js",
+  "./js/init.js",
   "./js/buildings-data.js",
   "./vendor/maplibre/maplibre-gl.js",
   "./vendor/maplibre/maplibre-gl.css",
@@ -23,7 +29,7 @@ self.addEventListener("install", (event) => {
   // No self.skipWaiting() here on purpose — a newly-installed worker now
   // stays "waiting" until the page explicitly tells it to take over (see
   // the "skip-waiting" message below), which only happens once the user
-  // has confirmed the update prompt in app.js's registerServiceWorker.
+  // has confirmed the update prompt in js/sw-client.js's registerServiceWorker.
   //
   // { cache: "reload" } on each request is not optional here: plain
   // cache.addAll(SHELL_ASSETS) fetches through the browser's normal HTTP
@@ -59,7 +65,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("message", (event) => {
   // Lets the page ask which cache version this worker is actually running,
-  // for the dev label in the top bar (see app.js's requestServiceWorkerVersion).
+  // for the dev label in the top bar (see js/sw-client.js's requestServiceWorkerVersion).
   if (event.data && event.data.type === "get-version") {
     event.source.postMessage({
       type: "sw-version",
@@ -68,8 +74,8 @@ self.addEventListener("message", (event) => {
   }
 
   // Sent only after the user agrees to the "update available" prompt — see
-  // app.js's registerServiceWorker. Lets this waiting worker finally
-  // activate and take over.
+  // js/sw-client.js's registerServiceWorker. Lets this waiting worker
+  // finally activate and take over.
   if (event.data && event.data.type === "skip-waiting") {
     self.skipWaiting();
   }
