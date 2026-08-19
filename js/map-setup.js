@@ -65,6 +65,7 @@ function initMap() {
 
   // Any manual drag by the user should stop auto-recentering on GPS updates.
   map.on("dragstart", () => {
+    console.log("[heading] dragstart -> followUser=false (this also silently stops auto-rotation, since onPosition only rotates when followUser is true)");
     followUser = false;
   });
 

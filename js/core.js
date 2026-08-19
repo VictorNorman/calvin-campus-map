@@ -128,6 +128,7 @@ let followUser = true;
 let buildingMarkers = [];
 let lastUserLatLng = null;
 let lastHeading = null;
+let lastPositionTimestamp = null;
 let lastRouteRequestAt = 0;
 let lastRouteRequestLatLng = null;
 let mapRotationEnabled = false;
