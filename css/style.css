@@ -14,6 +14,14 @@
   box-sizing: border-box;
 }
 
+/* Removes the ~300ms tap delay some mobile browsers use to disambiguate a
+   tap from the start of a double-tap-to-zoom gesture — without this, that
+   delay mechanism is a known source of duplicate/"ghost" click events on
+   buttons (a real touch-event quirk, not user error). */
+button {
+  touch-action: manipulation;
+}
+
 /* An author `display` rule on an element (e.g. `#foo { display: flex }`)
    always beats the browser's built-in `[hidden] { display: none }` rule,
    regardless of specificity — origin trumps specificity in the cascade. Any

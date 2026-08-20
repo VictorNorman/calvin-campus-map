@@ -204,8 +204,25 @@ document.getElementById("locate-btn").addEventListener("click", () => {
 // ---------------------------------------------------------------------------
 
 const rotateBtn = document.getElementById("rotate-btn");
+// Guards against duplicate/"ghost" click events some mobile browsers can
+// fire for a single tap (a real, documented touch-event quirk, not user
+// error) — a second click arriving implausibly soon after one we already
+// processed is discarded rather than toggling the state right back.
+let lastRotateClickProcessedAt = 0;
+const ROTATE_CLICK_DEBOUNCE_MS = 400;
 if (rotateBtn) {
-  rotateBtn.addEventListener("click", () => {
+  rotateBtn.addEventListener("click", (event) => {
+    const now = performance.now();
+    console.log(
+      `[heading] rotate button click event: isTrusted=${event.isTrusted} detail=${event.detail} ` +
+        `timeStamp=${event.timeStamp.toFixed(0)} msSinceLastProcessed=${(now - lastRotateClickProcessedAt).toFixed(0)}`
+    );
+    if (now - lastRotateClickProcessedAt < ROTATE_CLICK_DEBOUNCE_MS) {
+      console.log(`[heading] IGNORED — arrived within ${ROTATE_CLICK_DEBOUNCE_MS}ms of the last processed click`);
+      return;
+    }
+    lastRotateClickProcessedAt = now;
+
     mapRotationEnabled = !mapRotationEnabled;
     rotateBtn.classList.toggle("active", mapRotationEnabled);
     console.log(`[heading] rotate button clicked -> mapRotationEnabled=${mapRotationEnabled}, lastHeading=${lastHeading === null ? "null" : lastHeading.toFixed(1) + "°"}`);
