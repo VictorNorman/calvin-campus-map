@@ -468,9 +468,22 @@ function clearRouteLine() {
 }
 
 function fitRouteBounds(coords) {
+  // MapLibre's fitBounds() defaults bearing to 0 (north-up) whenever it's
+  // not explicitly given — it does NOT preserve whatever the map's current
+  // bearing happens to be. This function runs every time a route is
+  // (re)requested, which while walking an active route happens repeatedly
+  // via the ROUTE_REFRESH_MIN_INTERVAL_MS/METERS throttle in onPosition —
+  // roughly every few seconds. Without passing the current bearing back in,
+  // every one of those refreshes silently snapped the map back to north,
+  // undoing whatever rotation onPosition had just set, which our own
+  // heading logic would then slowly rotate away from again before the next
+  // refresh snapped it back — a very plausible source of "rotates, then
+  // rotates back, on and off, periodically" specifically while following a
+  // route (as opposed to just wandering with no destination selected).
   map.fitBounds(boundsOf(coords), {
     padding: 60,
     maxZoom: 18,
+    bearing: map.getBearing(),
   });
   followUser = false;
 }
