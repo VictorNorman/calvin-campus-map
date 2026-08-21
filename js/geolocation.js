@@ -35,31 +35,17 @@ function userMarkerEl() {
 // differs enough from the last accepted heading, so ordinary jitter doesn't
 // make the map twitch. Returns the accepted heading, or null if rejected —
 // the caller folds this into a single map.easeTo() call alongside any
-// followUser recenter (see the big comment on that in onPosition below);
-// this function deliberately does NOT call easeTo itself anymore.
+// followUser recenter (see onPosition below).
 //
 // MapLibre's `bearing` is already "the compass direction shown at the top of
 // the screen," so setting it straight to the heading is what points the
-// user's direction of travel up — no inversion. Rotation is controlled by
-// the rotate button alone (mapRotationEnabled, already gating the caller) —
-// it used to also require followUser, a separate "auto-recenter on me" flag
-// that turns false the moment you drag the map or select a route. That meant
-// heading was tracking correctly in the background the whole time, but the
-// map would just silently never rotate to show it whenever followUser
-// happened to be off, with no indication why. ON means rotated, full stop,
-// regardless of followUser.
+// user's direction of travel up — no inversion.
 function acceptHeadingCandidate(candidate) {
   const delta = lastHeading === null ? null : angularDeltaDeg(candidate, lastHeading);
-  console.log(
-    `[heading] candidate=${candidate.toFixed(1)}° lastHeading=${lastHeading === null ? "null" : lastHeading.toFixed(1) + "°"} ` +
-      `delta=${delta === null ? "n/a" : delta.toFixed(1) + "°"}`
-  );
   if (lastHeading === null || delta > HEADING_MIN_DELTA_DEG) {
     lastHeading = candidate;
-    console.log(`[heading] ACCEPTED heading=${candidate.toFixed(1)}°`);
     return lastHeading;
   }
-  console.log(`[heading] rejected — delta ${delta.toFixed(1)}° <= ${HEADING_MIN_DELTA_DEG}°`);
   return null;
 }
 
@@ -70,21 +56,14 @@ function onPosition(pos) {
     lng: longitude,
   };
 
-  console.log(
-    `[heading] fix: lat=${latitude.toFixed(6)} lng=${longitude.toFixed(6)} ` +
-      `accuracy=${accuracy.toFixed(1)}m ts=${pos.timestamp}`
-  );
-
   // navigator.geolocation.getCurrentPosition() and watchPosition() (both
   // wired to this same callback, in initGeolocation) aren't guaranteed to
   // deliver fixes in chronological order — a slower/cached fix can arrive
   // after a newer one. An out-of-order fix processed as if it were the
-  // latest would compute a heading pointing backward along the true path
-  // of travel, which is exactly what "the map rotates back after a step or
-  // two" looks like. Discard anything not strictly newer than what we've
-  // already processed.
+  // latest would compute a heading pointing backward along the true path of
+  // travel. Discard anything not strictly newer than what we've already
+  // processed.
   if (lastPositionTimestamp !== null && pos.timestamp <= lastPositionTimestamp) {
-    console.log(`[heading] IGNORED — out of order (ts ${pos.timestamp} <= last processed ${lastPositionTimestamp})`);
     return;
   }
   lastPositionTimestamp = pos.timestamp;
@@ -94,14 +73,9 @@ function onPosition(pos) {
     rotateBtn.hidden = false;
   }
 
-  // Heading is only tracked at all while rotation mode is actually on. It
-  // used to keep recalculating in the background even while off — invisibly,
-  // since nothing was displaying it — using noisy GPS course-over-ground at
-  // walking pace, so by the time you turned rotation back on it could snap
-  // straight to a stale value you never saw it drift to. That looked exactly
-  // like "the map rotates back" even though, technically, nothing was
-  // rotating while off. Simple rule now: off means off, full stop — no
-  // computation, no drift, nothing to snap to later.
+  // Heading is only tracked at all while rotation mode is actually on —
+  // turning it off forgets lastHeading/lastUserLatLng entirely (see the
+  // rotate button handler below) so there's nothing stale to resume from.
   // Any accepted heading is collected here rather than applied immediately —
   // see the single merged map.easeTo() call below for why.
   let newBearing = null;
@@ -113,20 +87,14 @@ function onPosition(pos) {
     if (hasDeviceHeading) {
       // Modern phones report this from sensor fusion (GPS + compass +
       // motion), refreshed far more often internally than our once-a-second
-      // fixes. Preferring it avoids the wide swings that came from deriving
-      // a bearing ourselves out of two GPS fixes only a few meters apart,
-      // where ordinary GPS accuracy (several meters here) can throw a
-      // short-baseline angle off by tens of degrees — that's what made the
-      // map visibly wobble/spin while "on" even though the button itself
-      // never toggled.
-      console.log(`[heading] using device-reported heading=${deviceHeading.toFixed(1)}°`);
+      // fixes, and is much less noisy than deriving a bearing ourselves out
+      // of two GPS fixes only a few meters apart.
       newBearing = acceptHeadingCandidate(deviceHeading);
       // Keep the fallback anchor fresh in case device heading disappears later.
       lastUserLatLng = newLatLng;
     } else if (lastUserLatLng) {
       const movedMeters = distanceMeters(lastUserLatLng, newLatLng);
       const threshold = Math.max(HEADING_MIN_MOVE_METERS, accuracy);
-      console.log(`[heading] no device heading; movedMeters=${movedMeters.toFixed(1)} threshold=${threshold.toFixed(1)}`);
       if (movedMeters > threshold) {
         newBearing = acceptHeadingCandidate(bearingDegrees(lastUserLatLng, newLatLng));
         // Only advance the anchor once real movement has actually been
@@ -160,20 +128,13 @@ function onPosition(pos) {
 
   updateAccuracyCircle(userLatLng, accuracy);
 
-  // Deliberately ONE map.easeTo() call per fix, not two. This used to be two
-  // separate calls — one here for center/zoom recenter, one above for the
-  // rotation bearing — issued back to back in the same synchronous tick.
-  // Since easeTo() options you don't mention default to the map's *current*
-  // value at call time, and this second call ran before the first one had
-  // ever rendered a single animation frame, "current bearing" here always
-  // meant the OLD pre-fix bearing — so this recenter call silently
-  // overwrote/cancelled the rotation that had just been requested a few
-  // lines earlier, on every single fix, unconditionally. That's a much
-  // better fit for "it rotates and then snaps back" than anything fixed so
-  // far: confirmed by directly driving onPosition() with synthetic fixes a
-  // realistic ~1s apart and watching the map's bearing stay pinned at its
-  // starting value indefinitely despite lastHeading advancing correctly
-  // fix after fix. Folding both into one call removes the collision.
+  // Deliberately ONE map.easeTo() call per fix, not two (recenter and
+  // rotate separately). easeTo() options you don't mention default to the
+  // map's *current* value at call time — issuing two calls back to back in
+  // the same tick means the second one's "current bearing" is still the OLD
+  // pre-fix value (no animation frame has rendered yet), so it would
+  // silently cancel a rotation the first call had just requested. Folding
+  // both into one call removes that collision entirely.
   if (followUser || newBearing !== null) {
     const easeOptions = {
       duration: followUser ? 400 : 300,
@@ -184,7 +145,6 @@ function onPosition(pos) {
     }
     if (newBearing !== null) {
       easeOptions.bearing = newBearing;
-      console.log(`[heading] map.easeTo bearing=${newBearing.toFixed(1)}° (from onPosition${followUser ? ", merged with recenter" : ""})`);
     }
     map.easeTo(easeOptions);
   }
@@ -253,56 +213,33 @@ document.getElementById("locate-btn").addEventListener("click", () => {
 
 const rotateBtn = document.getElementById("rotate-btn");
 // Guards against duplicate/"ghost" click events some mobile browsers can
-// fire for a single tap (a real, documented touch-event quirk, not user
-// error) — a second click arriving implausibly soon after one we already
-// processed is discarded rather than toggling the state right back.
+// fire for a single tap (a real, documented touch-event quirk) — a second
+// click arriving implausibly soon after one we already processed is
+// discarded rather than toggling the state right back.
 let lastRotateClickProcessedAt = 0;
 const ROTATE_CLICK_DEBOUNCE_MS = 400;
-// Click events don't carry pointer info themselves; capture it separately so
-// a future "I didn't click that" report can distinguish a real finger/stylus
-// tap (pointerType "touch"/"pen", plausible on-button coordinates) from
-// something else entirely (e.g. a keyboard-triggered activation has no
-// preceding pointerdown at all).
-let lastRotatePointerInfo = "none (no preceding pointerdown — keyboard/synthetic?)";
 if (rotateBtn) {
-  rotateBtn.addEventListener("pointerdown", (event) => {
-    lastRotatePointerInfo = `pointerType=${event.pointerType} x=${event.clientX.toFixed(0)} y=${event.clientY.toFixed(0)}`;
-  });
-  rotateBtn.addEventListener("click", (event) => {
+  rotateBtn.addEventListener("click", () => {
     const now = performance.now();
-    console.log(
-      `[heading] rotate button click event: isTrusted=${event.isTrusted} detail=${event.detail} ` +
-        `timeStamp=${event.timeStamp.toFixed(0)} msSinceLastProcessed=${(now - lastRotateClickProcessedAt).toFixed(0)} ` +
-        `pointer=[${lastRotatePointerInfo}]`
-    );
-    // Reset so a later click's diagnostic can't be misread as touch-backed
-    // just because an earlier, already-explained click happened to be.
-    lastRotatePointerInfo = "none (no preceding pointerdown — keyboard/synthetic?)";
     if (now - lastRotateClickProcessedAt < ROTATE_CLICK_DEBOUNCE_MS) {
-      console.log(`[heading] IGNORED — arrived within ${ROTATE_CLICK_DEBOUNCE_MS}ms of the last processed click`);
       return;
     }
     lastRotateClickProcessedAt = now;
 
     mapRotationEnabled = !mapRotationEnabled;
     rotateBtn.classList.toggle("active", mapRotationEnabled);
-    console.log(`[heading] rotate button clicked -> mapRotationEnabled=${mapRotationEnabled}, lastHeading=${lastHeading === null ? "null" : lastHeading.toFixed(1) + "°"}`);
 
     if (mapRotationEnabled) {
       // Only rotate if we actually have a heading yet — otherwise leave the
       // bearing alone rather than snapping it to 0. (onPosition will rotate
       // to the real heading once one is computed.)
       if (lastHeading !== null) {
-        console.log(`[heading] map.easeTo bearing=${lastHeading.toFixed(1)}° (from rotate button)`);
         map.easeTo({
           bearing: lastHeading,
           duration: 300,
         });
-      } else {
-        console.log("[heading] rotate button: no heading yet, leaving bearing as-is");
       }
     } else {
-      console.log("[heading] map.easeTo bearing=0° (from rotate button, turning off)");
       map.easeTo({
         bearing: 0,
         duration: 300,
@@ -313,7 +250,6 @@ if (rotateBtn) {
       // facing last time it was on.
       lastHeading = null;
       lastUserLatLng = null;
-      console.log("[heading] cleared lastHeading/lastUserLatLng — next enable starts fresh");
     }
   });
 }
