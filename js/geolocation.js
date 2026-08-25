@@ -128,6 +128,19 @@ function onPosition(pos) {
 
   updateAccuracyCircle(userLatLng, accuracy);
 
+  // Recenter on every fix whenever followUser is on, AND whenever rotation
+  // mode is on regardless of followUser. Rotation mode is a "heading-up
+  // navigation" mode — the map is meant to pivot around you — but followUser
+  // gets set false the moment a route is selected (see fitRouteBounds) and
+  // otherwise only stays on until your first manual drag. Without this,
+  // once a route was active, the camera only recentered when the route
+  // periodically refetched/refit (ROUTE_REFRESH_MIN_INTERVAL_MS/METERS in
+  // the block below) — bearing kept updating every fix in between, but the
+  // geographic center didn't move, so the map rotated around a point that
+  // was no longer where you actually were. That's what pushed the user
+  // marker off-screen while walking an active route with rotation on.
+  const shouldRecenter = followUser || mapRotationEnabled;
+
   // Deliberately ONE map.easeTo() call per fix, not two (recenter and
   // rotate separately). easeTo() options you don't mention default to the
   // map's *current* value at call time — issuing two calls back to back in
@@ -135,11 +148,11 @@ function onPosition(pos) {
   // pre-fix value (no animation frame has rendered yet), so it would
   // silently cancel a rotation the first call had just requested. Folding
   // both into one call removes that collision entirely.
-  if (followUser || newBearing !== null) {
+  if (shouldRecenter || newBearing !== null) {
     const easeOptions = {
-      duration: followUser ? 400 : 300,
+      duration: shouldRecenter ? 400 : 300,
     };
-    if (followUser) {
+    if (shouldRecenter) {
       easeOptions.center = [userLatLng.lng, userLatLng.lat];
       easeOptions.zoom = Math.max(map.getZoom(), DEFAULT_ZOOM);
     }
