@@ -113,7 +113,7 @@ const CALVIN_BUILDINGS = [
   {
     "id": "bruce-dice-museum",
     "name": "Bruce Dice Museum",
-    "aliases": ["dice museum", "anthropology museum", "museum"],
+    "aliases": ["dice museum", "museum"],
     "category": "Academic",
     "lat": 42.931545,
     "lon": -85.5889186,
