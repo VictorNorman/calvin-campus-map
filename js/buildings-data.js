@@ -111,6 +111,18 @@ const CALVIN_BUILDINGS = [
     ]
   },
   {
+    "id": "bruce-dice-museum",
+    "name": "Bruce Dice Museum",
+    "aliases": ["dice museum", "anthropology museum", "museum"],
+    "category": "Academic",
+    "lat": 42.931545,
+    "lon": -85.5889186,
+    "entrances": [
+      { "id": "entrance-1", "label": "Entrance 1", "lat": 42.9316642, "lon": -85.5887479, "preferred": true }
+    ],
+    "note": "Inside North Hall, near entrance 3"
+  },
+  {
     "id": "science-building",
     "name": "Science Building",
     "aliases": ["science", "chemistry", "biology"],
