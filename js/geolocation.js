@@ -128,18 +128,19 @@ function onPosition(pos) {
 
   updateAccuracyCircle(userLatLng, accuracy);
 
-  // Recenter on every fix whenever followUser is on, AND whenever rotation
-  // mode is on regardless of followUser. Rotation mode is a "heading-up
-  // navigation" mode — the map is meant to pivot around you — but followUser
-  // gets set false the moment a route is selected (see fitRouteBounds) and
-  // otherwise only stays on until your first manual drag. Without this,
-  // once a route was active, the camera only recentered when the route
-  // periodically refetched/refit (ROUTE_REFRESH_MIN_INTERVAL_MS/METERS in
-  // the block below) — bearing kept updating every fix in between, but the
-  // geographic center didn't move, so the map rotated around a point that
-  // was no longer where you actually were. That's what pushed the user
-  // marker off-screen while walking an active route with rotation on.
-  const shouldRecenter = followUser || mapRotationEnabled;
+  // Recenter tightly on the user every fix whenever followUser is on, and
+  // also under rotation — but only while there's no active route. With no
+  // destination selected, rotation is plain "heading-up follow me" mode, so
+  // tracking the user every fix is exactly right. With a route active, the
+  // camera should keep showing the whole remaining route instead — that's
+  // what fitRouteBounds does, on its own periodic cadence (see
+  // ROUTE_REFRESH_MIN_INTERVAL_MS/METERS below), and it already preserves
+  // whatever bearing is current. Recentering tightly on the user every
+  // single fix on top of that fought with it — the camera visibly jumped
+  // back and forth between "zoomed in on me" and "zoomed out to the whole
+  // route" every few seconds. So while a route is active, per-fix updates
+  // here only turn the bearing; fitRouteBounds alone drives center/zoom.
+  const shouldRecenter = followUser || (mapRotationEnabled && !activeBuilding);
 
   // Deliberately ONE map.easeTo() call per fix, not two (recenter and
   // rotate separately). easeTo() options you don't mention default to the
