@@ -107,7 +107,13 @@ body {
   /* iOS Safari auto-zooms the page on focus for any text input under 16px,
      and doesn't reset the zoom afterward — 16px avoids triggering it. */
   font-size: 16px;
-  background: #fff;
+  /* var(--panel-bg), not a hardcoded #fff: --ink (this input's text color)
+     switches to a near-white tone in dark mode, so a background that didn't
+     switch along with it meant dark-mode text was rendering white-on-white,
+     invisible. --panel-bg tracks --ink's theme (it's what the search
+     results dropdown right below this input already uses), so the two
+     always stay readable together. */
+  background: var(--panel-bg);
   color: var(--ink);
 }
 
@@ -331,7 +337,9 @@ body {
   /* Same iOS auto-zoom-on-focus issue as #search-input — keep at 16px. */
   font-size: 16px;
   color: var(--ink);
-  background: #fff;
+  /* See #search-input's comment: var(--panel-bg), not a hardcoded #fff, so
+     this stays readable against --ink in dark mode too. */
+  background: var(--panel-bg);
   box-shadow: var(--shadow);
 }
 
@@ -780,39 +788,32 @@ body {
     color: #a3a3a3;
   }
 
-  #locate-btn {
-    background: #232426;
-  }
-
-  #simulate-location-btn {
-    background: #232426;
-  }
-
-  #add-entrance-btn {
-    background: #232426;
-  }
-
-  #download-data-btn {
-    background: #232426;
-  }
-
-  #show-osm-paths-btn {
-    background: #232426;
-  }
-
-  #debug-console-btn {
-    background: #232426;
-  }
-
+  /* These all use the same white-circle/maroon-icon look in light mode
+     (background set per-button above, color: var(--maroon) inherited from
+     each button's own rule). In dark mode the background flips to a dark
+     gray, and — since the icon color is now piped through via each SVG's
+     fill/stroke="currentColor" — the icon needs to flip too: maroon on
+     dark gray is very low contrast (both are dark colors), practically as
+     hard to read as the plain black default icons this replaced. var(--ink)
+     is already the app's "reads clearly against the current background"
+     tone in both themes, so reusing it here for icon color keeps every one
+     of these buttons legible without a separate color per button. rotate-btn
+     was previously missing from this list entirely, leaving it stuck with
+     its light-mode white background even in dark mode.
+     #entrance-building-select needs no entry here — its background/color
+     now come from --panel-bg/--ink directly (see its rule above), which
+     already flip correctly. */
+  #locate-btn,
+  #rotate-btn,
+  #simulate-location-btn,
+  #add-entrance-btn,
+  #download-data-btn,
+  #show-osm-paths-btn,
+  #debug-console-btn,
   #edit-mode-btn {
     background: #232426;
+    color: var(--ink);
   }
-
-  #entrance-building-select {
-    background: #232426;
-    color: #eee;
-  }
-
 }
 
 /* ---------------------------------------------------------------------- */
